@@ -1,6 +1,6 @@
 use cmake::Config;
 use std::env;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 /// Fix duplicate type definitions in the generated bindings file
@@ -10,18 +10,18 @@ use std::process::Command;
 /// rather than trying to patch for it in the C++ code.
 fn fix_duplicate_bindings(bindings_file: &PathBuf) {
     println!("cargo:warning=Fixing duplicate type definitions in bindings...");
-    
+
     let scripts_dir = PathBuf::from("scripts");
     let python_script = scripts_dir.join("fix_bindings.py");
     let shell_script = scripts_dir.join("fix_bindings.sh");
-    
+
     // Try Python script first
     if python_script.exists() {
         let output = Command::new("python3")
             .arg(&python_script)
             .arg(bindings_file)
             .output();
-            
+
         match output {
             Ok(result) => {
                 if result.status.success() {
@@ -36,21 +36,24 @@ fn fix_duplicate_bindings(bindings_file: &PathBuf) {
             }
         }
     }
-    
+
     // Fallback to shell script
     if shell_script.exists() {
         let output = Command::new("bash")
             .arg(&shell_script)
             .arg(bindings_file)
             .output();
-            
+
         match output {
             Ok(result) => {
                 if result.status.success() {
                     println!("cargo:warning=Successfully fixed bindings with shell script");
                 } else {
                     println!("cargo:warning=Shell script failed");
-                    eprintln!("Shell script stderr: {}", String::from_utf8_lossy(&result.stderr));
+                    eprintln!(
+                        "Shell script stderr: {}",
+                        String::from_utf8_lossy(&result.stderr)
+                    );
                 }
             }
             Err(e) => {
@@ -62,9 +65,57 @@ fn fix_duplicate_bindings(bindings_file: &PathBuf) {
     }
 }
 
+/// Custom callback for bindgen that maps build directory headers back to source files
+#[derive(Debug)]
+struct FilteredCargoCallbacks {
+    cpp_src_path: PathBuf,
+}
+
+impl FilteredCargoCallbacks {
+    fn new(cpp_src_path: PathBuf) -> Self {
+        Self { cpp_src_path }
+    }
+}
+
+impl bindgen::callbacks::ParseCallbacks for FilteredCargoCallbacks {
+    fn include_file(&self, filename: &str) {
+        // Only process barretenberg headers
+        if !filename.contains("barretenberg") {
+            return;
+        }
+
+        // If it's in a build/target directory, map it back to the source file
+        if filename.contains("/target/") || filename.contains("/build/") {
+            if let Some(idx) = filename.find("barretenberg/") {
+                let relative_part = &filename[idx..];
+                let source_path = self.cpp_src_path.join(relative_part);
+                println!("cargo:rerun-if-changed={}", source_path.display());
+            }
+        }
+        // If it's already a source file, track it directly
+        else {
+            println!("cargo:rerun-if-changed={}", filename);
+        }
+    }
+}
+
 fn main() {
     // Notify Cargo to rerun this build script if `build.rs` changes.
     println!("cargo:rerun-if-changed=build.rs");
+
+    // Also watch the scripts directory for changes
+    println!("cargo:rerun-if-changed=scripts/fix_bindings.py");
+    println!("cargo:rerun-if-changed=scripts/fix_bindings.sh");
+
+    // Watch CMakeLists.txt for build configuration changes
+    println!("cargo:rerun-if-changed=../cpp/CMakeLists.txt");
+
+    // Path to the cpp source directory
+    let cpp_src_path = PathBuf::from("../cpp/src");
+
+    // Note: The C++ header files we're binding to will be automatically tracked
+    // by FilteredCargoCallbacks when bindgen parses them, so we don't need to
+    // explicitly list them here anymore
 
     // cfg!(target_os = "<os>") does not work so we get the value
     // of the target_os environment variable to determine the target OS.
@@ -90,30 +141,36 @@ fn main() {
         let ndk_version = option_env!("NDK_VERSION").expect("NDK_VERSION not set");
 
         dst = Config::new("../cpp")
-        .generator("Ninja")
-        .configure_arg("-DCMAKE_BUILD_TYPE=Release")
-        .configure_arg("-DANDROID_ABI=arm64-v8a")
-        .configure_arg("-DANDROID_PLATFORM=android-33")
-        .configure_arg(&format!("--toolchain={}/ndk/{}/build/cmake/android.toolchain.cmake", android_home, ndk_version))
-        .configure_arg("-DTRACY_ENABLE=OFF")
-        .build_target("bb")
-        .build();
+            .generator("Ninja")
+            .configure_arg("-DCMAKE_BUILD_TYPE=Release")
+            .configure_arg("-DANDROID_ABI=arm64-v8a")
+            .configure_arg("-DANDROID_PLATFORM=android-33")
+            .configure_arg(&format!(
+                "--toolchain={}/ndk/{}/build/cmake/android.toolchain.cmake",
+                android_home, ndk_version
+            ))
+            .configure_arg("-DTRACY_ENABLE=OFF")
+            .build_target("bb")
+            .build();
     }
     // MacOS and other platforms
     else {
         dst = Config::new("../cpp")
-        .generator("Ninja")
-        .configure_arg("-DCMAKE_BUILD_TYPE=Release")            
-        .configure_arg("-DTRACY_ENABLE=OFF")
-        .build_target("bb")
-        .build();
+            .generator("Ninja")
+            .configure_arg("-DCMAKE_BUILD_TYPE=Release")
+            .configure_arg("-DTRACY_ENABLE=OFF")
+            .build_target("bb")
+            .build();
     }
 
     // Add the library search path for Rust to find during linking.
     println!("cargo:rustc-link-search={}/build/lib", dst.display());
 
     // Add the library search path for libdeflate
-    println!("cargo:rustc-link-search={}/build/_deps/libdeflate-build", dst.display());
+    println!(
+        "cargo:rustc-link-search={}/build/_deps/libdeflate-build",
+        dst.display()
+    );
 
     // Link the `barretenberg` static library.
     println!("cargo:rustc-link-lib=static=barretenberg");
@@ -130,7 +187,13 @@ fn main() {
 
     // Copy the headers to the build directory.
     // Fix an issue where the headers are not included in the build.
-    Command::new("sh").args(&["copy-headers.sh", &format!("{}/build/include", dst.display())]).output().unwrap();
+    Command::new("sh")
+        .args(&[
+            "copy-headers.sh",
+            &format!("{}/build/include", dst.display()),
+        ])
+        .output()
+        .unwrap();
 
     let mut builder = bindgen::Builder::default();
 
@@ -180,15 +243,18 @@ fn main() {
             ]);
     } else {
         builder = builder
-        // Add the include path for headers.
-        .clang_args([
-            "-std=c++20",
-            "-xc++",
-            &format!("-I{}/build/include", dst.display()),
-            // Dependencies' include paths needs to be added manually.
-            &format!("-I{}/build/_deps/msgpack-c/src/msgpack-c/include", dst.display()),
-            //&format!("-I{}/build/_deps/libdeflate-src", dst.display()),
-        ]);
+            // Add the include path for headers.
+            .clang_args([
+                "-std=c++20",
+                "-xc++",
+                &format!("-I{}/build/include", dst.display()),
+                // Dependencies' include paths needs to be added manually.
+                &format!(
+                    "-I{}/build/_deps/msgpack-c/src/msgpack-c/include",
+                    dst.display()
+                ),
+                //&format!("-I{}/build/_deps/libdeflate-src", dst.display()),
+            ]);
     }
 
     let bindings = builder
@@ -250,8 +316,9 @@ fn main() {
         //.allowlist_function("acir_write_vk_ultra_starknet_honk")
         //.allowlist_function("acir_write_vk_ultra_starknet_zk_honk")
         .allowlist_function("acir_prove_and_verify_ultra_honk")
-        // Tell cargo to invalidate the built crate whenever any of the included header files changed.
-        .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
+        // Use custom callbacks to filter out system headers and build directories
+        // while mapping build copies back to their source files for tracking
+        .parse_callbacks(Box::new(FilteredCargoCallbacks::new(cpp_src_path)))
         // Finish the builder and generate the bindings.
         .generate()
         // Unwrap the Result and panic on failure.
