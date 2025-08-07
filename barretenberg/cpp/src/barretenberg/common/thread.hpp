@@ -15,7 +15,7 @@ inline size_t get_num_cpus()
 #if defined(__APPLE__) || defined(ANDROID) || defined(__ANDROID__)
     return std::thread::hardware_concurrency();
 #else
-    return env_hardware_concurrency();
+    return std::thread::hardware_concurrency();
 #endif
 }
 

@@ -101,7 +101,7 @@ template <typename T, typename... Args> void write_benchmark(const std::string& 
 #if defined(__APPLE__) || defined(__ANDROID__) || defined(ANDROID)
         << "\"threads\": " << std::thread::hardware_concurrency();
 #else
-        << "\"threads\": " << env_hardware_concurrency();
+        << "\"threads\": " << std::thread::hardware_concurrency();
 #endif
 
     appendToStream(oss, args...); // unpack and append the key-value pairs
