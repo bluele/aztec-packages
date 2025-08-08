@@ -110,6 +110,26 @@ fn main() {
     // Watch CMakeLists.txt for build configuration changes
     println!("cargo:rerun-if-changed=../cpp/CMakeLists.txt");
 
+    // Get parallel build level from environment variable or use hardware concurrency
+    let parallel_jobs = env::var("CMAKE_BUILD_PARALLEL_LEVEL")
+        .ok()
+        .and_then(|s| s.parse::<usize>().ok())
+        .or_else(|| {
+            env::var("BB_BUILD_JOBS")
+                .ok()
+                .and_then(|s| s.parse::<usize>().ok())
+        })
+        .unwrap_or_else(|| {
+            std::thread::available_parallelism()
+                .map(|n| n.get())
+                .unwrap_or(4)
+        }); // Default to 4 if unable to detect
+
+    println!(
+        "cargo:warning=Using {} parallel jobs for CMake build",
+        parallel_jobs
+    );
+
     // Path to the cpp source directory
     let cpp_src_path = PathBuf::from("../cpp/src");
 
@@ -133,6 +153,8 @@ fn main() {
             .configure_arg("--toolchain=../bb_rs/ios.toolchain.cmake")
             .configure_arg("-DTRACY_ENABLE=OFF")
             .build_target("bb")
+            .build_arg("-j")
+            .build_arg(parallel_jobs.to_string())
             .build();
     }
     // Android
@@ -151,6 +173,8 @@ fn main() {
             ))
             .configure_arg("-DTRACY_ENABLE=OFF")
             .build_target("bb")
+            .build_arg("-j")
+            .build_arg(parallel_jobs.to_string())
             .build();
     }
     // MacOS and other platforms
@@ -160,6 +184,8 @@ fn main() {
             .configure_arg("-DCMAKE_BUILD_TYPE=Release")
             .configure_arg("-DTRACY_ENABLE=OFF")
             .build_target("bb")
+            .build_arg("-j")
+            .build_arg(parallel_jobs.to_string())
             .build();
     }
 

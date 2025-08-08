@@ -15,6 +15,25 @@ cargo build -vvvv --target aarch64-apple-ios
 cargo build -vvvv --target aarch64-linux-android
 ```
 
+### Controlling Build Parallelism
+
+If you encounter out-of-memory (OOM) errors during the CMake build process, you can control the number of parallel build jobs using environment variables:
+
+```bash
+# Option 1: Use CMAKE_BUILD_PARALLEL_LEVEL (standard CMake variable)
+CMAKE_BUILD_PARALLEL_LEVEL=2 cargo build
+
+# Option 2: Use BB_BUILD_JOBS (custom variable for this project)
+BB_BUILD_JOBS=2 cargo build
+
+# The build will default to using all available CPU cores if neither variable is set
+```
+
+The build script will display the number of parallel jobs being used:
+```
+warning: Using 2 parallel jobs for CMake build
+```
+
 ## Known issues
 
 ### Missing `sys/random.h`
