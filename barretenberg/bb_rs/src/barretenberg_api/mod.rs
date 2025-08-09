@@ -1,4 +1,5 @@
 pub mod acir;
+pub mod acir_cxx_bridge;
 pub mod blake2s;
 pub mod models;
 pub mod pedersen;

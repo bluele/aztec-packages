@@ -1,8 +1,8 @@
 use super::{bindgen, models::Ptr, traits::SerializeBuffer, Buffer};
-use std::ptr;
-use std::fmt::Write;
-use std::env;
 use num_bigint::BigUint;
+use std::env;
+use std::fmt::Write;
+use std::ptr;
 
 #[derive(Debug)]
 pub struct CircuitSizes {
@@ -12,7 +12,10 @@ pub struct CircuitSizes {
 
 fn pack_proof_into_biguints(vec_u8: &[u8]) -> Vec<BigUint> {
     // We process the vector in chunks of 32 bytes
-    vec_u8.chunks(32).map(|chunk| BigUint::from_bytes_be(chunk)).collect()
+    vec_u8
+        .chunks(32)
+        .map(|chunk| BigUint::from_bytes_be(chunk))
+        .collect()
 }
 
 // TODO: Enable this once we know how to format the vk as fields
@@ -42,7 +45,10 @@ fn pack_proof_into_biguints(vec_u8: &[u8]) -> Vec<BigUint> {
 }*/
 
 fn from_biguints_to_hex_strings(biguints: &[BigUint]) -> Vec<String> {
-    biguints.iter().map(|biguint| format!("0x{:064x}", biguint)).collect()
+    biguints
+        .iter()
+        .map(|biguint| format!("0x{:064x}", biguint))
+        .collect()
 }
 
 pub unsafe fn get_circuit_sizes(constraint_system_buf: &[u8], recursive: bool) -> CircuitSizes {
@@ -140,55 +146,24 @@ pub unsafe fn acir_prove_ultra_keccak_zk_honk(
     .to_vec()
 }
 
-pub unsafe fn acir_get_ultra_honk_verification_key(constraint_system_buf: &[u8]) -> Vec<u8> {
-    let mut out_ptr = ptr::null_mut();
-    bindgen::acir_write_vk_ultra_honk(
-        constraint_system_buf.to_buffer().as_slice().as_ptr(),
-        &mut out_ptr
-    );
-    Buffer::from_ptr(
-        Buffer::from_ptr(out_ptr)
-            .unwrap()
-            .to_vec()
-            .as_slice()
-            .as_ptr(),
-    )
-    .unwrap()
-    .to_vec()
+pub fn acir_get_ultra_honk_verification_key(
+    constraint_system_buf: &[u8],
+) -> Result<Vec<u8>, String> {
+    super::acir_cxx_bridge::acir_get_ultra_honk_verification_key_safe(constraint_system_buf)
 }
 
-pub unsafe fn acir_get_ultra_honk_keccak_verification_key(constraint_system_buf: &[u8]) -> Vec<u8> {
-    let mut out_ptr = ptr::null_mut();
-    bindgen::acir_write_vk_ultra_keccak_honk(
-        constraint_system_buf.to_buffer().as_slice().as_ptr(),
-        &mut out_ptr
-    );
-    Buffer::from_ptr(
-        Buffer::from_ptr(out_ptr)
-            .unwrap()
-            .to_vec()
-            .as_slice()
-            .as_ptr(),
-    )
-    .unwrap()
-    .to_vec()
+pub fn acir_get_ultra_honk_keccak_verification_key(
+    constraint_system_buf: &[u8],
+) -> Result<Vec<u8>, String> {
+    super::acir_cxx_bridge::acir_get_ultra_honk_keccak_verification_key_safe(constraint_system_buf)
 }
 
-pub unsafe fn acir_get_ultra_honk_keccak_zk_verification_key(constraint_system_buf: &[u8]) -> Vec<u8> {
-    let mut out_ptr = ptr::null_mut();
-    bindgen::acir_write_vk_ultra_keccak_zk_honk(
-        constraint_system_buf.to_buffer().as_slice().as_ptr(),
-        &mut out_ptr
-    );
-    Buffer::from_ptr(
-        Buffer::from_ptr(out_ptr)
-            .unwrap()
-            .to_vec()
-            .as_slice()
-            .as_ptr(),
+pub fn acir_get_ultra_honk_keccak_zk_verification_key(
+    constraint_system_buf: &[u8],
+) -> Result<Vec<u8>, String> {
+    super::acir_cxx_bridge::acir_get_ultra_honk_keccak_zk_verification_key_safe(
+        constraint_system_buf,
     )
-    .unwrap()
-    .to_vec()
 }
 
 pub unsafe fn acir_verify_ultra_honk(proof_buf: &[u8], vkey_buf: &[u8]) -> bool {
@@ -221,7 +196,10 @@ pub unsafe fn acir_verify_ultra_keccak_zk_honk(proof_buf: &[u8], vkey_buf: &[u8]
     result
 }
 
-pub unsafe fn acir_prove_and_verify_ultra_honk(constraint_system_buf: &[u8], witness_buf: &[u8]) -> bool {
+pub unsafe fn acir_prove_and_verify_ultra_honk(
+    constraint_system_buf: &[u8],
+    witness_buf: &[u8],
+) -> bool {
     let mut result = false;
     bindgen::acir_prove_and_verify_ultra_honk(
         constraint_system_buf.to_buffer().as_ptr(),
