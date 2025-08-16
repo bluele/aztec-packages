@@ -342,6 +342,7 @@ fn main() {
         //.allowlist_function("acir_write_vk_ultra_starknet_honk")
         //.allowlist_function("acir_write_vk_ultra_starknet_zk_honk")
         .allowlist_function("acir_prove_and_verify_ultra_honk")
+        .allowlist_function("acir_vk_as_fields_ultra_honk")
         // Use custom callbacks to filter out system headers and build directories
         // while mapping build copies back to their source files for tracking
         .parse_callbacks(Box::new(FilteredCargoCallbacks::new(cpp_src_path)))
