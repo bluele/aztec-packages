@@ -1,6 +1,6 @@
 use cmake::Config;
 use std::env;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::Command;
 
 /// Fix duplicate type definitions in the generated bindings file
@@ -102,6 +102,9 @@ impl bindgen::callbacks::ParseCallbacks for FilteredCargoCallbacks {
 fn main() {
     // Notify Cargo to rerun this build script if `build.rs` changes.
     println!("cargo:rerun-if-changed=build.rs");
+
+    // Watch cxx bridge files
+    println!("cargo:rerun-if-changed=src/barretenberg_api/acir_cxx_bridge.rs");
 
     // Also watch the scripts directory for changes
     println!("cargo:rerun-if-changed=scripts/fix_bindings.py");
@@ -360,4 +363,16 @@ fn main() {
 
     // Fix duplicate type definitions in the generated bindings
     fix_duplicate_bindings(&bindings_file);
+
+    // Build the cxx bridge
+    let cpp_src_path_abs = PathBuf::from("../cpp/src");
+    cxx_build::bridge("src/barretenberg_api/acir_cxx_bridge.rs")
+        .std("c++20")
+        .include(&format!("{}/build/include", dst.display()))
+        .include(&format!(
+            "{}/build/_deps/msgpack-c/src/msgpack-c/include",
+            dst.display()
+        ))
+        .include(cpp_src_path_abs)
+        .compile("acir_cxx_bridge");
 }
