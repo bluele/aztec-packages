@@ -68,82 +68,34 @@ pub unsafe fn get_circuit_sizes(constraint_system_buf: &[u8], recursive: bool) -
     }
 }
 
-pub unsafe fn acir_prove_ultra_honk(
+pub fn acir_prove_ultra_honk(
     constraint_system_buf: &[u8],
     witness_buf: &[u8],
     vkey_buf: &[u8],
     slow_low_memory: bool,
-) -> Vec<u8> {
+) -> Result<Vec<u8>, String> {
     acir_set_slow_low_memory(slow_low_memory);
-
-    let mut out_ptr = ptr::null_mut();
-    bindgen::acir_prove_ultra_zk_honk(
-        constraint_system_buf.to_buffer().as_slice().as_ptr(),
-        witness_buf.to_buffer().as_slice().as_ptr(),
-        vkey_buf.as_ptr(),
-        &mut out_ptr,
-    );
-    Buffer::from_ptr(
-        Buffer::from_ptr(out_ptr)
-            .unwrap()
-            .to_vec()
-            .as_slice()
-            .as_ptr(),
-    )
-    .unwrap()
-    .to_vec()
+    super::acir_cxx_bridge::acir_prove_ultra_zk_honk_safe(constraint_system_buf, witness_buf, vkey_buf)
 }
 
-pub unsafe fn acir_prove_ultra_keccak_honk(
+pub fn acir_prove_ultra_keccak_honk(
     constraint_system_buf: &[u8],
     witness_buf: &[u8],
     vkey_buf: &[u8],
     slow_low_memory: bool,
-) -> Vec<u8> {
+) -> Result<Vec<u8>, String> {
     acir_set_slow_low_memory(slow_low_memory);
-
-    let mut out_ptr = ptr::null_mut();
-    bindgen::acir_prove_ultra_keccak_honk(
-        constraint_system_buf.to_buffer().as_slice().as_ptr(),
-        witness_buf.to_buffer().as_slice().as_ptr(),
-        vkey_buf.as_ptr(),
-        &mut out_ptr,
-    );
-    Buffer::from_ptr(
-        Buffer::from_ptr(out_ptr)
-            .unwrap()
-            .to_vec()
-            .as_slice()
-            .as_ptr(),
-    )
-    .unwrap()
-    .to_vec()
+    super::acir_cxx_bridge::acir_prove_ultra_keccak_honk_safe(constraint_system_buf, witness_buf, vkey_buf)
 }
 
-pub unsafe fn acir_prove_ultra_keccak_zk_honk(
+pub fn acir_prove_ultra_keccak_zk_honk(
     constraint_system_buf: &[u8],
     witness_buf: &[u8],
     vkey_buf: &[u8],
     slow_low_memory: bool,
-) -> Vec<u8> {
+) -> Result<Vec<u8>, String> {
     acir_set_slow_low_memory(slow_low_memory);
-
-    let mut out_ptr = ptr::null_mut();
-    bindgen::acir_prove_ultra_keccak_zk_honk(
-        constraint_system_buf.to_buffer().as_slice().as_ptr(),
-        witness_buf.to_buffer().as_slice().as_ptr(),
-        vkey_buf.as_ptr(),
-        &mut out_ptr,
-    );
-    Buffer::from_ptr(
-        Buffer::from_ptr(out_ptr)
-            .unwrap()
-            .to_vec()
-            .as_slice()
-            .as_ptr(),
-    )
-    .unwrap()
-    .to_vec()
+    super::acir_cxx_bridge::acir_prove_ultra_keccak_zk_honk_safe(constraint_system_buf, witness_buf, vkey_buf)
 }
 
 pub fn acir_get_ultra_honk_verification_key(
