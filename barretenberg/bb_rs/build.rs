@@ -1,3 +1,8 @@
+#![allow(
+    clippy::needless_borrows_for_generic_args,
+    clippy::option_env_unwrap
+)]
+
 use cmake::Config;
 use std::env;
 use std::path::PathBuf;
@@ -65,6 +70,7 @@ fn fix_duplicate_bindings(bindings_file: &PathBuf) {
 fn main() {
     // Notify Cargo to rerun this build script if `build.rs` changes.
     println!("cargo:rerun-if-changed=build.rs");
+    println!("cargo:rerun-if-changed=src/barretenberg_api/acir_cxx_bridge.rs");
 
     // cfg!(target_os = "<os>") does not work so we get the value
     // of the target_os environment variable to determine the target OS.
@@ -318,4 +324,16 @@ fn main() {
 
     // Fix duplicate type definitions in the generated bindings
     fix_duplicate_bindings(&bindings_file);
+
+    // Build the cxx bridge that catches C++ exceptions as Rust errors.
+    let cpp_src_path_abs = PathBuf::from("../cpp/src");
+    cxx_build::bridge("src/barretenberg_api/acir_cxx_bridge.rs")
+        .std("c++20")
+        .include(format!("{}/build/include", dst.display()))
+        .include(format!(
+            "{}/build/_deps/msgpack-c/src/msgpack-c/include",
+            dst.display()
+        ))
+        .include(cpp_src_path_abs)
+        .compile("acir_cxx_bridge");
 }

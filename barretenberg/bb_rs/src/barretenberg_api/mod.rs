@@ -1,4 +1,6 @@
+#![allow(non_snake_case, non_camel_case_types)]
 pub mod acir;
+pub mod acir_cxx_bridge;
 pub mod aes;
 pub mod bbapi;
 pub mod blake2s;
@@ -16,6 +18,7 @@ pub mod traits;
 #[cfg(test)]
 pub mod tests;
 
+#[allow(dead_code)]
 mod bindgen {
     // This matches bindgen::Builder output
     include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
